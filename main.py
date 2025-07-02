@@ -8,12 +8,16 @@ import sys
 import subprocess
 
 def ensure_playwright_browser():
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(tempfile.gettempdir(), "playwright-browsers")
+
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             _ = p.chromium.launch()
-    except Exception:
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
+            print("Playwright and Chromium are ready.")
+    except Exception as e:
+        print("Installing Playwright and Chromium...")
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
 
 ensure_playwright_browser()
 
