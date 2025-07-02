@@ -1,31 +1,32 @@
 import tkinter as tk
+from tkinter import filedialog, messagebox
 import os
-import tempfile
 import asyncio
 import re
 from urllib.parse import urlparse
-import sys
+from pathlib import Path
+import tempfile
 import subprocess
-
-def ensure_playwright_browser():
-    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(tempfile.gettempdir(), "playwright-browsers")
-
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            _ = p.chromium.launch()
-            print("Playwright and Chromium are ready.")
-    except Exception as e:
-        print("Installing Playwright and Chromium...")
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-
-ensure_playwright_browser()
-
-from playwright.async_api import async_playwright
-
-from tkinter import filedialog, messagebox
+import sys
 from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright
+import threading
 
+# Set a cross-platform browser path
+def set_playwright_browser_path():
+    browser_path = Path.home() / ".my_app" / "playwright-browsers"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_path)
+    browser_path.mkdir(parents=True, exist_ok=True)
+
+# Ensure Playwright and Chromium are installed
+async def ensure_playwright_browser():
+    set_playwright_browser_path()
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            await browser.close()
+    except Exception:
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
 
 # Async function to save rendered HTML with local resource links
 async def save_html_with_local_links_only(url: str, output_file: str):
@@ -55,7 +56,7 @@ async def save_html_with_local_links_only(url: str, output_file: str):
     for element in soup.find_all(style=True):
         style = element["style"]
         updated_style = style
-        for match in re.findall(r'url\\(([^)]+)\\)', style):
+        for match in re.findall(r'url\(([^)]+)\)', style):
             cleaned_url = match.strip("'\"")
             parsed_url = urlparse(cleaned_url)
             if parsed_url.scheme in ["http", "https"]:
@@ -122,30 +123,31 @@ def browse_save_file():
         entry_save_as.insert(0, filename)
 
 def process_file():
-    file_path = entry_file.get()
-    output_path = entry_save_as.get()
-    url = entry_url.get()
+    def run():
+        file_path = entry_file.get()
+        output_path = entry_save_as.get()
+        url = entry_url.get()
 
-    if not output_path:
-        messagebox.showerror("Error", "Please specify an output file.")
-        return
+        if not output_path:
+            messagebox.showerror("Error", "Please specify an output file.")
+            return
 
-    try:
-        if url:
+        try:
+            if url:
+                if "?disabled=tests" in url:
+                    url = url[:url.find("?disabled=tests")]
+                url = url + "?disabled=tests:0:,0:1:"
+                downloaded_file = download_html_from_url(url)
+                trim_and_replace_multiple(downloaded_file, output_path)
+                os.remove(downloaded_file)
+            elif file_path:
+                trim_and_replace_multiple(file_path, output_path)
+            else:
+                messagebox.showerror("Error", "Please provide either a file or a URL.")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
-            if "?disabled=tests" in url:
-                url = url[:url.find("?disabled=tests")]
-            url = url + "?disabled=tests:0:,0:1:"
-
-            downloaded_file = download_html_from_url(url)
-            trim_and_replace_multiple(downloaded_file, output_path)
-            os.remove(downloaded_file)
-        elif file_path:
-            trim_and_replace_multiple(file_path, output_path)
-        else:
-            messagebox.showerror("Error", "Please provide either a file or a URL.")
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+    threading.Thread(target=run).start()
 
 def show_instructions():
     instructions_window = tk.Toplevel(root)
@@ -169,25 +171,34 @@ def show_instructions():
     text.pack(expand=True, fill="both", padx=10, pady=10)
 
 # GUI setup
-root = tk.Tk()
-root.title("RTings Data Extractor")
+async def launch_gui():
+    await ensure_playwright_browser()
 
-tk.Label(root, text="Input File:").grid(row=0, column=0, sticky="e")
-entry_file = tk.Entry(root, width=50)
-entry_file.grid(row=0, column=1)
-tk.Button(root, text="Browse", command=browse_file).grid(row=0, column=2)
+    global root, entry_file, entry_url, entry_save_as
+    root = tk.Tk()
+    root.title("RTings Data Extractor")
 
-tk.Label(root, text="or URL:").grid(row=1, column=0, sticky="e")
-entry_url = tk.Entry(root, width=50)
-entry_url.grid(row=1, column=1)
+    tk.Label(root, text="Input File:").grid(row=0, column=0, sticky="e")
+    entry_file = tk.Entry(root, width=50)
+    entry_file.grid(row=0, column=1)
+    tk.Button(root, text="Browse", command=browse_file).grid(row=0, column=2)
 
-tk.Label(root, text="Output File:").grid(row=2, column=0, sticky="e")
-entry_save_as = tk.Entry(root, width=50)
-entry_save_as.grid(row=2, column=1)
-tk.Button(root, text="Save As", command=browse_save_file).grid(row=2, column=2)
-entry_save_as.insert(0, os.path.join(os.path.expanduser("~"), "Desktop", "output.txt"))
+    tk.Label(root, text="or URL:").grid(row=1, column=0, sticky="e")
+    entry_url = tk.Entry(root, width=50)
+    entry_url.grid(row=1, column=1)
 
-tk.Button(root, text="Process File", command=process_file).grid(row=3, column=1, pady=10)
-tk.Button(root, text="Instructions", command=show_instructions).grid(row=4, column=1, pady=5)
+    tk.Label(root, text="Output File:").grid(row=2, column=0, sticky="e")
+    entry_save_as = tk.Entry(root, width=50)
+    entry_save_as.grid(row=2, column=1)
+    tk.Button(root, text="Save As", command=browse_save_file).grid(row=2, column=2)
+    entry_save_as.insert(0, os.path.join(os.path.expanduser("~"), "Desktop", "output.txt"))
 
-root.mainloop()
+    tk.Button(root, text="Process File", command=process_file).grid(row=3, column=1, pady=10)
+    tk.Button(root, text="Instructions", command=show_instructions).grid(row=4, column=1, pady=5)
+
+    root.mainloop()
+
+# Run the GUI
+if __name__ == "__main__":
+    asyncio.run(launch_gui())
+
