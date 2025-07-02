@@ -31,7 +31,7 @@ jobs:
     - name: Build executable
       run: |
         pip install pyinstaller
-        pyinstaller --onefile windowed --name rtings_extractor main.py
+        pyinstaller --onefile --name rtings_extractor main.py
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
