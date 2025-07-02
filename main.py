@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 
 if getattr(sys, 'frozen', False):
-    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(sys._MEIPASS, "ms-playwright")
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(sys._MEIPASS, "ms-playwright")
 
 from playwright.async_api import async_playwright
 import subprocess
