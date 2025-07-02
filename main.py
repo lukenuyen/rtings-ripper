@@ -6,6 +6,9 @@ import re
 from urllib.parse import urlparse
 
 
+if getattr(sys, 'frozen', False):
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(sys._MEIPASS, "ms-playwright")
+
 from playwright.async_api import async_playwright
 import subprocess
 import sys
@@ -24,16 +27,16 @@ import sys
 #     except ImportError:
 #         install_playwright()
 
-def ensure_playwright_browsers_installed():
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            _ = p.chromium.launch()
-    except Exception:
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
+#def ensure_playwright_browsers_installed():
+#    try:
+#        from playwright.sync_api import sync_playwright
+#        with sync_playwright() as p:
+#            _ = p.chromium.launch()
+#    except Exception:
+#        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
 
 #ensure_playwright_installed()
-ensure_playwright_browsers_installed()
+#ensure_playwright_browsers_installed()
 
 from tkinter import filedialog, messagebox
 from bs4 import BeautifulSoup
