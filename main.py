@@ -4,27 +4,37 @@ import tempfile
 import asyncio
 import re
 from urllib.parse import urlparse
-#
+
 
 from playwright.async_api import async_playwright
 import subprocess
 import sys
 
-def install_playwright():
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
-        subprocess.check_call([sys.executable, "-m", "playwright", "install"])
-        print("Playwright installed successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to install Playwright: {e}")
+# def install_playwright():
+#     try:
+#         subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+#         subprocess.check_call([sys.executable, "-m", "playwright", "install"])
+#         print("Playwright installed successfully.")
+#     except subprocess.CalledProcessError as e:
+#         print(f"Failed to install Playwright: {e}")
+#
+# def ensure_playwright_installed():
+#     try:
+#         import playwright
+#     except ImportError:
+#         install_playwright()
 
-def ensure_playwright_installed():
+def ensure_playwright_browsers_installed():
     try:
-        import playwright
-    except ImportError:
-        install_playwright()
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            _ = p.chromium.launch()
+    except Exception:
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
 
-ensure_playwright_installed()
+#ensure_playwright_installed()
+ensure_playwright_browsers_installed()
+
 from tkinter import filedialog, messagebox
 from bs4 import BeautifulSoup
 
