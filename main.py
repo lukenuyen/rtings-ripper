@@ -18,15 +18,23 @@ def set_playwright_browser_path():
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_path)
     browser_path.mkdir(parents=True, exist_ok=True)
 
-# Ensure Playwright and Chromium are installed
 async def ensure_playwright_browser():
     set_playwright_browser_path()
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             await browser.close()
+            print("Playwright and Chromium are ready.")
     except Exception:
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+        print("Installing Playwright and Chromium...")
+        result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+        print(result.stdout)
+
 
 # Async function to save rendered HTML with local resource links
 async def save_html_with_local_links_only(url: str, output_file: str):
